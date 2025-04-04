@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_quill/flutter_quill.dart'; // Import Quill
 
@@ -65,35 +66,6 @@ class MyApp extends StatelessWidget {
       home: const ListsPage(),
     );
   }
-}
-
-// Custom page route for sliding transitions
-class SlidePageRoute<T> extends PageRouteBuilder<T> {
-  final Widget page;
-  final bool reverse;
-
-  SlidePageRoute({
-    required this.page,
-    this.reverse = false,
-  }) : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-
-            var tween = Tween(
-              begin: reverse ? -begin : begin,
-              end: end,
-            ).chain(CurveTween(curve: curve));
-
-            return SlideTransition(
-              position: animation.drive(tween),
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        );
 }
 
 // Main lists page
@@ -194,8 +166,8 @@ class ListsPage extends StatelessWidget {
                           provider.selectNoteList(list);
                           Navigator.push(
                             context,
-                            SlidePageRoute(
-                              page: NotesPage(list: list),
+                            CupertinoPageRoute(
+                              builder: (context) => NotesPage(list: list),
                             ),
                           );
                         },
