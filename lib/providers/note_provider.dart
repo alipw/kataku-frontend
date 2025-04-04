@@ -48,13 +48,10 @@ class NoteProvider with ChangeNotifier {
 
   // --- List Management ---
 
-  void selectNoteList(NoteList list) {
-    if (_selectedNoteList?.id != list.id) {
-       _selectedNoteList = list;
-       // Select the first note in the new list, or null if empty
-       _selectedNote = list.notes.isNotEmpty ? list.notes.first : null;
-       notifyListeners();
-    }
+  void selectNoteList(NoteList? list) {
+    _selectedNoteList = list;
+    _selectedNote = null;
+    notifyListeners();
   }
 
   void addNoteList(String name) {
@@ -90,7 +87,13 @@ class NoteProvider with ChangeNotifier {
 
   // --- Note Management (within selected list) ---
 
-  void selectNote(Note note) {
+  void selectNote(Note? note) {
+    if (note == null) {
+      _selectedNote = null;
+      notifyListeners();
+      return;
+    }
+    
     // Ensure the note belongs to the currently selected list
     if (_selectedNoteList != null && _selectedNoteList!.notes.any((n) => n.id == note.id)) {
       _selectedNote = note;
@@ -101,13 +104,14 @@ class NoteProvider with ChangeNotifier {
     }
   }
 
-  void addNote() {
-    if (_selectedNoteList == null) return; // Cannot add note without a selected list
+  Note? addNote() {
+    if (_selectedNoteList == null) return null; // Cannot add note without a selected list
 
     final newNote = Note.empty();
     _selectedNoteList!.notes.add(newNote);
     _selectedNote = newNote; // Select the newly added note
     notifyListeners();
+    return newNote;
   }
 
   void updateSelectedNoteContent(Delta newContent) {

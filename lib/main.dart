@@ -24,442 +24,447 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kataku Notes', // Changed title
+      title: 'Kataku Notes',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true, // Optional: Use Material 3 design
-        navigationRailTheme: NavigationRailThemeData( // Style for wide screen sidebar
-            selectedIconTheme: IconThemeData(color: Colors.teal[700]),
-            selectedLabelTextStyle: TextStyle(color: Colors.teal[700], fontWeight: FontWeight.bold),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+          iconTheme: IconThemeData(color: Colors.blue),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-      home: const HomePage(), // Changed home to HomePage
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.grey[900],
+          elevation: 0,
+          centerTitle: false,
+          iconTheme: const IconThemeData(color: Colors.blue),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      themeMode: ThemeMode.system, // This will follow system theme
+      home: const ListsPage(),
     );
   }
 }
 
-// New HomePage widget
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+// Custom page route for sliding transitions
+class SlidePageRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+  final bool reverse;
+
+  SlidePageRoute({
+    required this.page,
+    this.reverse = false,
+  }) : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+
+            var tween = Tween(
+              begin: reverse ? -begin : begin,
+              end: end,
+            ).chain(CurveTween(curve: curve));
+
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        );
+}
+
+// Main lists page
+class ListsPage extends StatelessWidget {
+  const ListsPage({super.key});
+
+  void _showCreateListDialog(BuildContext context) {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New List'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'List name',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter a list name';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final provider = Provider.of<NoteProvider>(context, listen: false);
+                provider.addNoteList(controller.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWideScreen = constraints.maxWidth > 720; // Adjusted breakpoint
+    return Consumer<NoteProvider>(
+      builder: (context, provider, _) {
+        final lists = provider.noteLists;
 
-        if (isWideScreen) {
-          // Wide screen: Show Row with AllListsScreen + NotesScreen + EditorScreen
-          return Scaffold(
-            body: Row(
-              children: [
-                SizedBox(
-                  width: 200,
-                  child: AllListsScreen(), // Screen for List Names
-                ),
-                const VerticalDivider(width: 1),
-                 SizedBox(
-                   width: 280, // Width for notes in the selected list
-                   child: NotesInListScreen(), // Screen for Notes in List
-                 ),
-                 const VerticalDivider(width: 1),
-                Expanded(
-                  child: NoteEditorScreen(), // Editor remains expanded
-                ),
-              ],
-            ),
-          );
-        } else {
-          // Narrow screen: Show Editor + Drawer for Lists and Notes
-          return Scaffold(
-            appBar: AppBar(
-              title: Consumer<NoteProvider>( // Show selected List name
-                builder: (context, noteProvider, child) {
-                  return Text(noteProvider.selectedNoteList?.name ?? 'Kataku Notes');
-                },
-              ),
-              actions: [
-                // Button to show Notes of the current list (if a LIST is selected)
-                 Consumer<NoteProvider>(
-                  builder: (context, noteProvider, child) {
-                     if (noteProvider.selectedNoteList != null) {
-                       return IconButton(
-                         icon: const Icon(Icons.list_alt),
-                         tooltip: 'Show Notes in List',
-                         onPressed: () {
-                           Navigator.push(
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('My Lists'),
+          ),
+          body: lists.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.list_alt, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No lists yet',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: () => _showCreateListDialog(context),
+                        child: const Text('Create a list'),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: lists.length,
+                  padding: const EdgeInsets.all(8),
+                  itemBuilder: (context, index) {
+                    final list = lists[index];
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.list_alt),
+                        title: Text(
+                          list.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: Text(
+                          '${list.notes.length} notes',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        onTap: () {
+                          provider.selectNoteList(list);
+                          Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => Scaffold(
-                                appBar: AppBar(title: Text(noteProvider.selectedNoteList?.name ?? 'Notes')),
-                                body: NotesInListScreen(), // Navigate to notes list
-                              ),
+                            SlidePageRoute(
+                              page: NotesPage(list: list),
                             ),
                           );
-                         },
-                       );
-                     }
-                     // Hide if no list is selected
-                     return const SizedBox.shrink(); 
+                        },
+                      ),
+                    );
                   },
-                 ), 
-              ],
-            ),
-            drawer: Drawer( // Drawer now contains the AllListsScreen
-              width: 280,
-              child: AllListsScreen(),
-            ),
-            body: NoteEditorScreen(),
-          );
-        }
+                ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showCreateListDialog(context),
+            child: const Icon(Icons.add),
+          ),
+        );
       },
     );
   }
 }
 
-// --- Screen Widgets ---
+// Notes page for a specific list
+class NotesPage extends StatelessWidget {
+  final NoteList list;
 
-// Screen to display all Note Lists (used in Sidebar/Drawer)
-class AllListsScreen extends StatelessWidget {
-  const AllListsScreen({super.key});
+  const NotesPage({super.key, required this.list});
 
-  // Function to show Add/Rename List Dialog
-  Future<void> _showListDialog(BuildContext context, NoteProvider provider, {NoteList? existingList}) async {
-    final nameController = TextEditingController(text: existingList?.name ?? '');
-    final formKey = GlobalKey<FormState>();
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<NoteProvider>(
+      builder: (context, provider, _) {
+        final notes = provider.notes;
 
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(existingList == null ? 'Add New List' : 'Rename List'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'List Name'),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a list name';
-                }
-                return null;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(list.name),
+            leading: BackButton(
+              onPressed: () {
+                provider.selectNoteList(null);
+                Navigator.pop(context);
               },
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            TextButton(
-              child: Text(existingList == null ? 'Add' : 'Rename'),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                   final name = nameController.text.trim();
-                   if (existingList == null) {
-                     provider.addNoteList(name);
-                   } else {
-                     provider.renameNoteList(existingList, name);
-                   }
-                   Navigator.of(dialogContext).pop();
-                }
-              },
-            ),
-          ],
+          body: notes.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.note_add, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No notes yet',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: () {
+                          final note = provider.addNote();
+                          if (note != null) {
+                            _showNoteEditor(context, note);
+                          }
+                        },
+                        child: const Text('Add a note'),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: notes.length,
+                  padding: const EdgeInsets.all(8),
+                  itemBuilder: (context, index) {
+                    final note = notes[index];
+                    final preview = Document.fromJson(note.content.toJson())
+                        .toPlainText()
+                        .trim();
+
+                    return Card(
+                      child: ListTile(
+                        title: Text(
+                          note.title.isEmpty ? 'Untitled Note' : note.title,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: preview.isEmpty
+                            ? const Text(
+                                'Empty note',
+                                style: TextStyle(fontStyle: FontStyle.italic),
+                              )
+                            : Text(
+                                preview.split('\n').first,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                        onTap: () => _showNoteEditor(context, note),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => provider.deleteNote(note),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              final note = provider.addNote();
+              if (note != null) {
+                _showNoteEditor(context, note);
+              }
+            },
+            child: const Icon(Icons.add),
+          ),
         );
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final noteProvider = Provider.of<NoteProvider>(context);
-    final lists = noteProvider.noteLists;
-    final selectedList = noteProvider.selectedNoteList;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Note Lists'),
-        automaticallyImplyLeading: false, // No back button here
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Add List',
-            onPressed: () => _showListDialog(context, noteProvider),
+  void _showNoteEditor(BuildContext context, Note note) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 1.0,
+        minChildSize: 0.5,
+        maxChildSize: 1.0,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
-        ],
-      ),
-      body: ListView.builder(
-        itemCount: lists.length,
-        itemBuilder: (context, index) {
-          final list = lists[index];
-          return ListTile(
-            leading: const Icon(Icons.list), // Icon for list
-            title: Text(list.name),
-            selected: list.id == selectedList?.id,
-            selectedTileColor: Colors.teal.withOpacity(0.1),
-            onTap: () {
-              noteProvider.selectNoteList(list);
-              // Don't pop drawer automatically here, user might want to see notes first
-            },
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 18),
-              tooltip: 'List Options',
-              onSelected: (value) {
-                if (value == 'rename') {
-                  _showListDialog(context, noteProvider, existingList: list);
-                } else if (value == 'delete') {
-                   // Optional: Add confirmation dialog
-                   noteProvider.deleteNoteList(list);
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'rename',
-                  child: Text('Rename'),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                 const PopupMenuItem<String>(
-                   value: 'delete',
-                   child: Text('Delete'),
-                 ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-
-// Screen to display notes within the selected list
-class NotesInListScreen extends StatelessWidget {
-  const NotesInListScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final noteProvider = Provider.of<NoteProvider>(context);
-    // Get notes from the provider (which respects the selected list)
-    final notes = noteProvider.notes;
-    final selectedNote = noteProvider.selectedNote;
-    final selectedList = noteProvider.selectedNoteList; // Get selected list for title/actions
-
-    return Scaffold(
-      appBar: AppBar(
-         // Title shows list name, or generic if none selected (shouldn't happen here ideally)
-         title: Text(selectedList?.name ?? 'Notes'),
-        automaticallyImplyLeading: false, // No back button here
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add Note',
-            onPressed: selectedList == null ? null : () { // Disable if no list selected
-              noteProvider.addNote();
-              // If this screen is in a drawer, potentially close it?
-              // Or, if on wide screen, just adding is fine.
-               // On narrow screen, this screen might be pushed, so adding selects it.
-            },
+              ),
+              Expanded(
+                child: NoteEditor(
+                  note: note,
+                  scrollController: scrollController,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      body: notes.isEmpty
-          ? const Center(child: Text('No notes in this list yet.'))
-          : ListView.builder(
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final note = notes[index];
-                // Create a temporary document for plain text preview
-                final previewDoc = Document.fromJson(note.content.toJson());
-                return ListTile(
-                  title: Text(note.title.isEmpty ? '(Untitled Note)' : note.title),
-                  subtitle: Text(
-                     // Use previewDoc.toPlainText()
-                     previewDoc.toPlainText().split('\n').first.characters.take(50).toString(),
-                     maxLines: 1,
-                     overflow: TextOverflow.ellipsis,
-                  ),
-                  selected: note.id == selectedNote?.id,
-                  selectedTileColor: Colors.teal.withOpacity(0.1),
-                  onTap: () {
-                    noteProvider.selectNote(note);
-                     // Simplified logic: Pop route if possible (covers pushed screen case)
-                     // User manually closes main drawer if needed.
-                    if (Navigator.canPop(context)) {
-                       // Check if it's not the main scaffold's drawer route
-                       final parentRoute = ModalRoute.of(context);
-                       // Avoid popping if it's the main drawer content being shown
-                       // This check might need refinement depending on exact routing.
-                       bool isLikelyDrawerContent = !(parentRoute?.canPop ?? false);
-                       if (!isLikelyDrawerContent) {
-                           Navigator.pop(context);
-                       }
-                    }
-                  },
-                   trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    tooltip: 'Delete Note',
-                    onPressed: () {
-                      // Optional: Show confirmation dialog
-                      noteProvider.deleteNote(note);
-                    },
-                  ),
-                );
-              },
-            ),
     );
   }
 }
 
-// Widget to display the Quill editor for the selected note
-class NoteEditorScreen extends StatefulWidget {
-  const NoteEditorScreen({super.key});
+// Note editor widget
+class NoteEditor extends StatefulWidget {
+  final Note note;
+  final ScrollController scrollController;
+
+  const NoteEditor({
+    super.key,
+    required this.note,
+    required this.scrollController,
+  });
 
   @override
-  State<NoteEditorScreen> createState() => _NoteEditorScreenState();
+  State<NoteEditor> createState() => _NoteEditorState();
 }
 
-class _NoteEditorScreenState extends State<NoteEditorScreen> {
-   QuillController? _controller;
-   final FocusNode _focusNode = FocusNode();
-   final TextEditingController _titleController = TextEditingController();
-   final ScrollController _scrollController = ScrollController();
-   String? _currentNoteId; // Keep track of the loaded note ID
+class _NoteEditorState extends State<NoteEditor> {
+  late QuillController _controller;
+  final FocusNode _focusNode = FocusNode();
 
-   @override
+  @override
+  void initState() {
+    super.initState();
+    _controller = QuillController(
+      document: Document.fromJson(widget.note.content.toJson()),
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    _controller.addListener(_onTextChanged);
+  }
+
+  @override
   void dispose() {
-    _controller?.dispose();
+    _controller.dispose();
     _focusNode.dispose();
-    _titleController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
-  // Listener for QuillController changes
-  void _onQuillChange() {
-     if (_controller == null || !mounted) return; // Add mounted check
-     // Update the provider
-     Provider.of<NoteProvider>(context, listen: false)
-            .updateSelectedNoteContent(_controller!.document.toDelta());
-   }
-
-  void _loadNote(Note note) {
-    _currentNoteId = note.id;
-    final doc = Document.fromJson(note.content.toJson());
-
-    // Remove listener from old controller before disposing
-    _controller?.removeListener(_onQuillChange); // Change: Remove listener from controller
-    _controller?.dispose();
-
-    _controller = QuillController(
-      document: doc,
-      selection: const TextSelection.collapsed(offset: 0),
-    );
-    _titleController.text = note.title;
-
-    // Add listener to the new controller
-    _controller!.addListener(_onQuillChange); // Change: Add listener to controller
-
-     WidgetsBinding.instance.addPostFrameCallback((_) {
-       if (mounted) { }
-     });
+  void _onTextChanged() {
+    if (!mounted) return;
+    Provider.of<NoteProvider>(context, listen: false)
+        .updateSelectedNoteContent(_controller.document.toDelta());
   }
 
-   @override
+  @override
   Widget build(BuildContext context) {
-    // Watch for changes in the selected note *and* selected list
-    final noteProvider = Provider.of<NoteProvider>(context);
-    final selectedNote = noteProvider.selectedNote;
-    final selectedList = noteProvider.selectedNoteList;
-
-    // Determine if editor should be shown
-    bool shouldShowEditor = selectedNote != null && selectedList != null && selectedList.notes.contains(selectedNote);
-
-    // Load or reload note content only if the selected note ID changes
-    if (shouldShowEditor && _currentNoteId != selectedNote.id) {
-       // Use a post-frame callback to avoid modifying state during build
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-         if (mounted) { // Check if the widget is still in the tree
-           _loadNote(selectedNote);
-            // Force rebuild after loading note if necessary
-            setState(() {});
-         }
-       });
-     } else if (!shouldShowEditor && _controller != null) {
-        // Clear editor if no valid note is selected
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-           if (mounted) {
-              _controller?.removeListener(_onQuillChange); // Change: Remove listener from controller
-              _controller?.dispose();
-              _controller = null;
-              _titleController.clear();
-              _currentNoteId = null;
-              setState(() {});
-           }
-        });
-     }
-
-    // Show placeholder if no note/list is selected or if controller isn't ready
-    if (!shouldShowEditor || _controller == null) {
-       return Center(child: Text(selectedList == null 
-            ? 'Select or create a Note List.'
-            : 'Select a note or create a new one in "${selectedList.name}".'));
-     }
-
-    // Main editor view
     return Scaffold(
-       body: Padding(
-         padding: const EdgeInsets.all(16.0),
-         child: Column(
-           crossAxisAlignment: CrossAxisAlignment.stretch, // Ensure children fill width
-           children: [
-             // Title TextField
-             TextField(
-               controller: _titleController,
-               decoration: const InputDecoration(
-                 hintText: 'Note Title',
-                 border: InputBorder.none,
-               ),
-               style: Theme.of(context).textTheme.headlineSmall,
-               // Update provider only when editing finishes or focus changes
-               // to avoid excessive updates on every keystroke.
-               onChanged: (newTitle) {
-                  noteProvider.updateSelectedNoteTitle(newTitle);
-               },
-             ),
-             const Divider(),
-             // Quill Toolbar
-             QuillToolbar.simple(
-               configurations: QuillSimpleToolbarConfigurations(
-                 controller: _controller!,
-                 sharedConfigurations: const QuillSharedConfigurations(
-                   locale: Locale('en'),
-                 ),
-                 // Customize toolbar options if needed
-                 // showBoldButton: true,
-                 // showCodeBlock: false,
-               ),
-             ),
-             const Divider(),
-             // Quill Editor
-             Expanded(
-               child: QuillEditor(
-                 configurations: QuillEditorConfigurations(
-                   controller: _controller!,
-                   padding: const EdgeInsets.symmetric(vertical: 8), // Adjust padding
-                   sharedConfigurations: const QuillSharedConfigurations(
-                     locale: Locale('en'),
-                   ),
-                 ),
-                 scrollController: _scrollController,
-                 focusNode: _focusNode,
-               ),
-             ),
-           ],
-         ),
-       ),
-     );
-   }
+      appBar: AppBar(
+        title: TextField(
+          decoration: const InputDecoration(
+            hintText: 'Note title',
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 18),
+          onChanged: (value) =>
+              Provider.of<NoteProvider>(context, listen: false)
+                  .updateSelectedNoteTitle(value),
+        ),
+      ),
+      body: Column(
+        children: [
+          QuillToolbar.simple(
+            configurations: QuillSimpleToolbarConfigurations(
+              controller: _controller,
+              sharedConfigurations: const QuillSharedConfigurations(
+                locale: Locale('en'),
+              ),
+              showFontFamily: false,
+              showFontSize: false,
+              showBoldButton: true,
+              showItalicButton: true,
+              showSmallButton: false,
+              showUnderLineButton: false,
+              showStrikeThrough: false,
+              showInlineCode: false,
+              showColorButton: false,
+              showBackgroundColorButton: false,
+              showClearFormat: false,
+              showAlignmentButtons: false,
+              showLeftAlignment: false,
+              showCenterAlignment: false,
+              showRightAlignment: false,
+              showJustifyAlignment: false,
+              showHeaderStyle: false,
+              showListNumbers: true,
+              showListBullets: false,
+              showListCheck: false,
+              showCodeBlock: false,
+              showQuote: false,
+              showIndent: false,
+              showLink: false,
+              showUndo: false,
+              showRedo: false,
+              showDirection: false,
+              showSearchButton: false,
+              showSubscript: false,
+              showSuperscript: false,
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: QuillEditor(
+                configurations: QuillEditorConfigurations(
+                  controller: _controller,
+                  padding: EdgeInsets.zero,
+                  autoFocus: false,
+                  expands: false,
+                  placeholder: 'Start writing...',
+                  scrollable: true,
+                  sharedConfigurations: const QuillSharedConfigurations(
+                    locale: Locale('en'),
+                  ),
+                ),
+                focusNode: _focusNode,
+                scrollController: widget.scrollController,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
