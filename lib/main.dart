@@ -155,7 +155,7 @@ class ListsPage extends StatelessWidget {
                       child: ListTile(
                         leading: const Icon(Icons.list_alt),
                         title: Text(
-                          list.name,
+                          list.title,
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         trailing: Text(
@@ -199,7 +199,7 @@ class NotesPage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(list.name),
+            title: Text(list.title),
             leading: BackButton(
               onPressed: () {
                 provider.selectNoteList(null);
@@ -220,9 +220,9 @@ class NotesPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       FilledButton(
-                        onPressed: () {
-                          final note = provider.addNote();
-                          if (note != null) {
+                        onPressed: () async {
+                          final note = await provider.addNote();
+                          if (note != null && context.mounted) {
                             _showNoteEditor(context, note);
                           }
                         },
@@ -266,9 +266,9 @@ class NotesPage extends StatelessWidget {
                   },
                 ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () {
-              final note = provider.addNote();
-              if (note != null) {
+            onPressed: () async {
+              final note = await provider.addNote();
+              if (note != null && context.mounted) {
                 _showNoteEditor(context, note);
               }
             },
@@ -335,6 +335,7 @@ class NoteEditor extends StatefulWidget {
 
 class _NoteEditorState extends State<NoteEditor> {
   late QuillController _controller;
+  late TextEditingController _titleController;
   final FocusNode _focusNode = FocusNode();
 
   @override
@@ -344,12 +345,14 @@ class _NoteEditorState extends State<NoteEditor> {
       document: Document.fromJson(widget.note.content.toJson()),
       selection: const TextSelection.collapsed(offset: 0),
     );
+    _titleController = TextEditingController(text: widget.note.title);
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _titleController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -365,6 +368,7 @@ class _NoteEditorState extends State<NoteEditor> {
     return Scaffold(
       appBar: AppBar(
         title: TextField(
+          controller: _titleController,
           decoration: const InputDecoration(
             hintText: 'Note title',
             border: InputBorder.none,

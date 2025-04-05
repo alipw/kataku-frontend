@@ -7,19 +7,32 @@ class Note {
   final String id;
   String title;
   Delta content;
+  final String userOwnerId;
+  final String notesListsId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   Note({
     required this.id,
     required this.title,
     required this.content,
+    required this.userOwnerId,
+    required this.notesListsId,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   // Helper to create an empty note
-  factory Note.empty() {
+  factory Note.empty(String listId) {
+    final now = DateTime.now();
     return Note(
-      id: DateTime.now().toIso8601String(), // Simple unique ID for now
-      title: 'New Note',
-      content: Delta()..insert('\n'), // Start with an empty line
+      id: now.toIso8601String(), // Temporary ID until saved
+      title: '',
+      content: Delta()..insert('\n'),
+      userOwnerId: 'temp_user', // Will be set by the server
+      notesListsId: listId,
+      createdAt: now,
+      updatedAt: now,
     );
   }
 
@@ -28,7 +41,11 @@ class Note {
     return {
       'id': id,
       'title': title,
-      'content': jsonEncode(content.toJson()), // Store Delta as JSON string
+      'content': jsonEncode(content.toJson()),
+      'user_owner_id': userOwnerId,
+      'notesListsId': notesListsId,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
@@ -36,7 +53,11 @@ class Note {
     return Note(
       id: json['id'],
       title: json['title'],
-      content: Delta.fromJson(jsonDecode(json['content'])), // Decode JSON string to Delta
+      content: Delta.fromJson(jsonDecode(json['content'])),
+      userOwnerId: json['user_owner_id'],
+      notesListsId: json['notesListsId'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 } 

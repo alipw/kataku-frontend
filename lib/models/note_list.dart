@@ -2,39 +2,55 @@ import 'note.dart';
 
 class NoteList {
   final String id;
-  String name;
+  String title;
+  final String userOwnerId;
   final List<Note> notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   NoteList({
     required this.id,
-    required this.name,
+    required this.title,
+    required this.userOwnerId,
     List<Note>? notes,
-  }) : notes = notes ?? []; // Initialize with empty list if null
+    required this.createdAt,
+    required this.updatedAt,
+  }) : notes = notes ?? [];
 
   // Helper to create an empty list
-  factory NoteList.empty(String name) {
+  factory NoteList.empty(String title) {
+    final now = DateTime.now();
     return NoteList(
-      id: DateTime.now().toIso8601String(), // Simple unique ID
-      name: name,
+      id: now.toIso8601String(), // Temporary ID until saved
+      title: title,
+      userOwnerId: 'temp_user', // Will be set by the server
+      notes: [],
+      createdAt: now,
+      updatedAt: now,
     );
   }
 
-   // Optional: Methods for serialization if needed later
-   Map<String, dynamic> toJson() {
-     return {
-       'id': id,
-       'name': name,
-       'notes': notes.map((note) => note.toJson()).toList(),
-     };
-   }
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'user_owner_id': userOwnerId,
+      'notes': notes.map((note) => note.toJson()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
 
-   factory NoteList.fromJson(Map<String, dynamic> json) {
-     return NoteList(
-       id: json['id'],
-       name: json['name'],
-       notes: (json['notes'] as List)
-           .map((noteJson) => Note.fromJson(noteJson))
-           .toList(),
-     );
-   }
+  factory NoteList.fromJson(Map<String, dynamic> json) {
+    return NoteList(
+      id: json['id'],
+      title: json['title'],
+      userOwnerId: json['user_owner_id'],
+      notes: (json['notes'] as List)
+          .map((noteJson) => Note.fromJson(noteJson))
+          .toList(),
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
 } 
