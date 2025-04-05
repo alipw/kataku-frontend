@@ -224,6 +224,14 @@ class NotesPage extends StatelessWidget {
 
   const NotesPage({super.key, required this.list});
 
+  void _showNoteEditor(BuildContext context, Note note) {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => NoteEditorPage(note: note),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<NoteProvider>(
@@ -311,62 +319,21 @@ class NotesPage extends StatelessWidget {
       },
     );
   }
-
-  void _showNoteEditor(BuildContext context, Note note) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 1.0,
-        minChildSize: 0.5,
-        maxChildSize: 1.0,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: NoteEditor(
-                  note: note,
-                  scrollController: scrollController,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-// Note editor widget
-class NoteEditor extends StatefulWidget {
+class NoteEditorPage extends StatefulWidget {
   final Note note;
-  final ScrollController scrollController;
 
-  const NoteEditor({
+  const NoteEditorPage({
     super.key,
     required this.note,
-    required this.scrollController,
   });
 
   @override
-  State<NoteEditor> createState() => _NoteEditorState();
+  State<NoteEditorPage> createState() => _NoteEditorPageState();
 }
 
-class _NoteEditorState extends State<NoteEditor> {
+class _NoteEditorPageState extends State<NoteEditorPage> {
   late QuillController _controller;
   late TextEditingController _titleController;
   final FocusNode _focusNode = FocusNode();
@@ -397,11 +364,11 @@ class _NoteEditorState extends State<NoteEditor> {
     _hasChanges = true;
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (!_hasChanges) return;
     
     final provider = Provider.of<NoteProvider>(context, listen: false);
-    provider.updateSelectedNote(
+    await provider.updateSelectedNote(
       title: _titleController.text,
       content: _controller.document.toDelta(),
     );
@@ -412,11 +379,19 @@ class _NoteEditorState extends State<NoteEditor> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        _saveChanges();
+        await _saveChanges();
         return true;
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: BackButton(
+            onPressed: () async {
+              await _saveChanges();
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
           title: TextField(
             controller: _titleController,
             decoration: const InputDecoration(
@@ -428,6 +403,12 @@ class _NoteEditorState extends State<NoteEditor> {
               _hasChanges = true;
             },
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _saveChanges,
+            ),
+          ],
         ),
         body: Column(
           children: [
@@ -485,7 +466,7 @@ class _NoteEditorState extends State<NoteEditor> {
                     ),
                   ),
                   focusNode: _focusNode,
-                  scrollController: widget.scrollController,
+                  scrollController: ScrollController(),
                 ),
               ),
             ),

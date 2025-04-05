@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_quill/quill_delta.dart';
 import '../models/note.dart';
 import '../models/note_list.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 
 class ApiService {
   static const String baseUrl = 'https://kataku-worker.alifwide.workers.dev';
@@ -83,12 +84,18 @@ class ApiService {
     required String listId,
   }) async {
     try {
+      // Ensure content ends with newline
+      String plainText = Document.fromDelta(content).toPlainText();
+      if (!plainText.endsWith('\n')) {
+        plainText += '\n';
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/notes'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'title': title,
-          'content': content.toJson().toString(),
+          'content': plainText,
           'notesListsId': listId,
         }),
       );
@@ -129,12 +136,18 @@ class ApiService {
     required Delta content,
   }) async {
     try {
+      // Ensure content ends with newline
+      String plainText = Document.fromDelta(content).toPlainText();
+      if (!plainText.endsWith('\n')) {
+        plainText += '\n';
+      }
+
       final response = await http.put(
         Uri.parse('$baseUrl/notes/$noteId'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'title': title,
-          'content': content.toJson().toString(),
+          'content': plainText,
         }),
       );
       if (response.statusCode == 200) {
