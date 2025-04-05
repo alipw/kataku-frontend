@@ -10,25 +10,33 @@ class NoteProvider with ChangeNotifier {
   List<NoteList> _noteLists = [];
   NoteList? _selectedNoteList;
   Note? _selectedNote;
+  String? _error;
 
   // Getters
   List<NoteList> get noteLists => _noteLists;
   NoteList? get selectedNoteList => _selectedNoteList;
   List<Note> get notes => _selectedNoteList?.notes ?? [];
   Note? get selectedNote => _selectedNote;
+  String? get error => _error;
 
-  NoteProvider() {
-    _loadLists();
+  void _setError(String? error) {
+    _error = error;
+    notifyListeners();
   }
 
-  Future<void> _loadLists() async {
+  NoteProvider() {
+    loadLists();
+  }
+
+  Future<void> loadLists() async {
     try {
       _noteLists = await _api.getLists();
       if (_noteLists.isNotEmpty) {
         await selectNoteList(_noteLists.first);
       }
-      notifyListeners();
+      _setError(null);
     } catch (e) {
+      _setError(e.toString());
       debugPrint('Error loading lists: $e');
     }
   }
@@ -44,7 +52,9 @@ class NoteProvider with ChangeNotifier {
           _noteLists[index] = fullList;
           _selectedNoteList = fullList;
         }
+        _setError(null);
       } catch (e) {
+        _setError(e.toString());
         debugPrint('Error loading list details: $e');
       }
     }
@@ -56,8 +66,9 @@ class NoteProvider with ChangeNotifier {
       final newList = await _api.createList(title);
       _noteLists.add(newList);
       await selectNoteList(newList);
-      notifyListeners();
+      _setError(null);
     } catch (e) {
+      _setError(e.toString());
       debugPrint('Error creating list: $e');
     }
   }
@@ -69,8 +80,9 @@ class NoteProvider with ChangeNotifier {
       if (_selectedNoteList?.id == list.id) {
         await selectNoteList(_noteLists.isNotEmpty ? _noteLists.first : null);
       }
-      notifyListeners();
+      _setError(null);
     } catch (e) {
+      _setError(e.toString());
       debugPrint('Error deleting list: $e');
     }
   }
@@ -86,42 +98,32 @@ class NoteProvider with ChangeNotifier {
       );
       _selectedNoteList!.notes.add(newNote);
       _selectedNote = newNote;
-      notifyListeners();
+      _setError(null);
       return newNote;
     } catch (e) {
+      _setError(e.toString());
       debugPrint('Error creating note: $e');
       return null;
     }
   }
 
-  Future<void> updateSelectedNoteContent(Delta newContent) async {
+  Future<void> updateSelectedNote({
+    required String title,
+    required Delta content,
+  }) async {
     if (_selectedNote != null) {
       try {
         final updatedNote = await _api.updateNote(
           _selectedNote!.id,
-          title: _selectedNote!.title,
-          content: newContent,
-        );
-        _selectedNote!.content = updatedNote.content;
-        notifyListeners();
-      } catch (e) {
-        debugPrint('Error updating note content: $e');
-      }
-    }
-  }
-
-  Future<void> updateSelectedNoteTitle(String newTitle) async {
-    if (_selectedNote != null) {
-      try {
-        final updatedNote = await _api.updateNote(
-          _selectedNote!.id,
-          title: newTitle,
-          content: _selectedNote!.content,
+          title: title,
+          content: content,
         );
         _selectedNote!.title = updatedNote.title;
-        notifyListeners();
+        _selectedNote!.content = updatedNote.content;
+        _setError(null);
       } catch (e) {
-        debugPrint('Error updating note title: $e');
+        _setError(e.toString());
+        debugPrint('Error updating note: $e');
       }
     }
   }
@@ -136,9 +138,10 @@ class NoteProvider with ChangeNotifier {
               ? _selectedNoteList!.notes.first
               : null;
         }
-        notifyListeners();
+        _setError(null);
       }
     } catch (e) {
+      _setError(e.toString());
       debugPrint('Error deleting note: $e');
     }
   }

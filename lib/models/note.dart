@@ -50,10 +50,25 @@ class Note {
   }
 
   factory Note.fromJson(Map<String, dynamic> json) {
+    // Convert string content to Delta
+    Delta contentDelta;
+    try {
+      if (json['content'] is String) {
+        // If content is a plain string, create a Delta with that text
+        contentDelta = Delta()..insert(json['content']);
+      } else {
+        // If content is already a Delta JSON
+        contentDelta = Delta.fromJson(jsonDecode(json['content']));
+      }
+    } catch (e) {
+      // If parsing fails, create an empty Delta
+      contentDelta = Delta()..insert(json['content'] ?? '');
+    }
+
     return Note(
       id: json['id'],
       title: json['title'],
-      content: Delta.fromJson(jsonDecode(json['content'])),
+      content: contentDelta,
       userOwnerId: json['user_owner_id'],
       notesListsId: json['notesListsId'],
       createdAt: DateTime.parse(json['createdAt']),

@@ -122,6 +122,39 @@ class ListsPage extends StatelessWidget {
     return Consumer<NoteProvider>(
       builder: (context, provider, _) {
         final lists = provider.noteLists;
+        final error = provider.error;
+
+        if (error != null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('My Lists'),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading lists',
+                    style: TextStyle(color: Colors.red[600], fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => provider.loadLists(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -337,6 +370,7 @@ class _NoteEditorState extends State<NoteEditor> {
   late QuillController _controller;
   late TextEditingController _titleController;
   final FocusNode _focusNode = FocusNode();
+  bool _hasChanges = false;
 
   @override
   void initState() {
@@ -351,6 +385,7 @@ class _NoteEditorState extends State<NoteEditor> {
 
   @override
   void dispose() {
+    _saveChanges();
     _controller.dispose();
     _titleController.dispose();
     _focusNode.dispose();
@@ -359,87 +394,103 @@ class _NoteEditorState extends State<NoteEditor> {
 
   void _onTextChanged() {
     if (!mounted) return;
-    Provider.of<NoteProvider>(context, listen: false)
-        .updateSelectedNoteContent(_controller.document.toDelta());
+    _hasChanges = true;
+  }
+
+  void _saveChanges() {
+    if (!_hasChanges) return;
+    
+    final provider = Provider.of<NoteProvider>(context, listen: false);
+    provider.updateSelectedNote(
+      title: _titleController.text,
+      content: _controller.document.toDelta(),
+    );
+    _hasChanges = false;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _titleController,
-          decoration: const InputDecoration(
-            hintText: 'Note title',
-            border: InputBorder.none,
+    return WillPopScope(
+      onWillPop: () async {
+        _saveChanges();
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              hintText: 'Note title',
+              border: InputBorder.none,
+            ),
+            style: const TextStyle(fontSize: 18),
+            onChanged: (value) {
+              _hasChanges = true;
+            },
           ),
-          style: const TextStyle(fontSize: 18),
-          onChanged: (value) =>
-              Provider.of<NoteProvider>(context, listen: false)
-                  .updateSelectedNoteTitle(value),
         ),
-      ),
-      body: Column(
-        children: [
-          QuillToolbar.simple(
-            configurations: QuillSimpleToolbarConfigurations(
-              controller: _controller,
-              sharedConfigurations: const QuillSharedConfigurations(
-                locale: Locale('en'),
-              ),
-              showFontFamily: false,
-              showFontSize: false,
-              showBoldButton: true,
-              showItalicButton: true,
-              showSmallButton: false,
-              showUnderLineButton: false,
-              showStrikeThrough: false,
-              showInlineCode: false,
-              showColorButton: false,
-              showBackgroundColorButton: false,
-              showClearFormat: false,
-              showAlignmentButtons: false,
-              showLeftAlignment: false,
-              showCenterAlignment: false,
-              showRightAlignment: false,
-              showJustifyAlignment: false,
-              showHeaderStyle: false,
-              showListNumbers: true,
-              showListBullets: false,
-              showListCheck: false,
-              showCodeBlock: false,
-              showQuote: false,
-              showIndent: false,
-              showLink: false,
-              showUndo: false,
-              showRedo: false,
-              showDirection: false,
-              showSearchButton: false,
-              showSubscript: false,
-              showSuperscript: false,
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: QuillEditor(
-                configurations: QuillEditorConfigurations(
-                  controller: _controller,
-                  padding: EdgeInsets.zero,
-                  autoFocus: false,
-                  expands: false,
-                  placeholder: 'Start writing...',
-                  scrollable: true,
-                  sharedConfigurations: const QuillSharedConfigurations(
-                    locale: Locale('en'),
-                  ),
+        body: Column(
+          children: [
+            QuillToolbar.simple(
+              configurations: QuillSimpleToolbarConfigurations(
+                controller: _controller,
+                sharedConfigurations: const QuillSharedConfigurations(
+                  locale: Locale('en'),
                 ),
-                focusNode: _focusNode,
-                scrollController: widget.scrollController,
+                showFontFamily: false,
+                showFontSize: false,
+                showBoldButton: true,
+                showItalicButton: true,
+                showSmallButton: false,
+                showUnderLineButton: false,
+                showStrikeThrough: false,
+                showInlineCode: false,
+                showColorButton: false,
+                showBackgroundColorButton: false,
+                showClearFormat: false,
+                showAlignmentButtons: false,
+                showLeftAlignment: false,
+                showCenterAlignment: false,
+                showRightAlignment: false,
+                showJustifyAlignment: false,
+                showHeaderStyle: false,
+                showListNumbers: true,
+                showListBullets: false,
+                showListCheck: false,
+                showCodeBlock: false,
+                showQuote: false,
+                showIndent: false,
+                showLink: false,
+                showUndo: false,
+                showRedo: false,
+                showDirection: false,
+                showSearchButton: false,
+                showSubscript: false,
+                showSuperscript: false,
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: QuillEditor(
+                  configurations: QuillEditorConfigurations(
+                    controller: _controller,
+                    padding: EdgeInsets.zero,
+                    autoFocus: false,
+                    expands: false,
+                    placeholder: 'Start writing...',
+                    scrollable: true,
+                    sharedConfigurations: const QuillSharedConfigurations(
+                      locale: Locale('en'),
+                    ),
+                  ),
+                  focusNode: _focusNode,
+                  scrollController: widget.scrollController,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
